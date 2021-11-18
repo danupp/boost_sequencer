@@ -15,6 +15,9 @@
 #define REL_FB PIN6_bm // PA6
 #define JP1 PIN0_bm // PB0
 #define JP2 PIN1_bm // PB1
+#define JP3 PIN4_bm // PA4
+
+#define PTT_ACTIVE ( ((PORTB.IN & PTT) && (jp3_soldered == 0)) || (!(PORTB.IN & PTT) && jp3_soldered) )
 
 volatile uint8_t overload_flag;
 volatile uint16_t cyclecount;
@@ -45,14 +48,15 @@ ISR(PORTA_PORT_vect) {
 
 void main () {
 
-  uint8_t jp1_soldered, jp2_soldered;
+  uint8_t jp1_soldered, jp2_soldered, jp3_soldered;
   
-  PORTA.DIR = TX | RX | RELAY | BUCK_GATE; // outputs
+  PORTA.DIR = TX_INH | RX | RELAY | BUCK_GATE; // outputs
   PORTA.PIN7CTRL = 0x04; // digital input disable for AINP0/PA7
   PORTA.OUT = 0x00;
   PORTB.DIR = PA;
-  PORTB.PIN0CTRL = 0x08; // enable pull-up for JP1
-  PORTB.PIN1CTRL = 0x08; // enable pull-up for JP2
+  PORTB.PIN0CTRL = 0x08; // enable pull-up for JP1 - solder to disable relay power monitoring
+  PORTB.PIN1CTRL = 0x08; // enable pull-up for JP2 - solder to make TX signal INH
+  PORTA.PIN4CTRL = 0x08; // enable pull-up for JP3 - solder if PTT active high (n.b. BJT inverter)
   PORTB.PIN3CTRL = 0x08; // enable pull-up for PTT
   PORTA.PIN6CTRL = 0x08; // enable pull-up for REL_FB
   PORTB.OUT = 0x00;
@@ -70,7 +74,12 @@ void main () {
     jp2_soldered = 0;
   else
     jp2_soldered = 1;
-    
+
+  if (PORTA.IN & JP3)
+    jp3_soldered = 0;
+  else
+    jp3_soldered = 1;
+
   TCA0.SINGLE.PER = 67; // 20us period -> 50 kHz
   TCA0.SINGLE.CTRLA = 0b00000001; // DIV1 -> 0.3us/tick, ENABLE
     
@@ -111,33 +120,33 @@ void main () {
 
   PORTA.OUT |= RX;
   if (jp2_soldered)
-    PORTA.OUt |= TX_INH;
+    PORTA.OUT |= TX_INH;
   
   sei();
   
   while(1) {
-    if (!(PORTB.IN & PTT)) {
+    if (PTT_ACTIVE) {
 	_delay_ms(1); // filter noise spikes
-	if (!(PORTB.IN & PTT)) {
+	if (PTT_ACTIVE) {
 	    // go from Receive to Transmit
 	    PORTA.OUT &= ~RX;
 	    _delay_ms(10);
 	    PORTA.OUT |= RELAY;
-	    _delay_ms(35);
+	    _delay_ms(25);
 	    cyclecount = 0;
 	    PORTA.PIN5CTRL = 0x02; // Interrupt at rising edge on gate drive pin
 	    _delay_ms(10); // measured to 15ms with the interrupts
 	    PORTA.PIN5CTRL = 0x00; // disable interrupt
-	    if ( ((cyclecount > (uint16_t)38) && (cyclecount < (uint16_t)600)) || jp1_soldered) && !(PORTA.IN & REL_FB)) {
+	    if ( ( ((cyclecount > (uint16_t)38) && (cyclecount < (uint16_t)600)) || jp1_soldered) && !(PORTA.IN & REL_FB)) {
 	  // Continue if 4-80 % load on relay or JP1 soldered, and REL_FB low
 	      PORTB.OUT |= PA;
-	      _delay_ms(100);
+	      _delay_ms(10);
 	      if (jp2_soldered)
 		PORTA.OUT &= ~TX_INH;
 	      else
 		PORTA.OUT |= TX_INH;
 	    }
-	    while (!(PORTB.IN & PTT)) {
+	    while (PTT_ACTIVE) {
 		_delay_ms(1);
 	      }
     
@@ -148,9 +157,9 @@ void main () {
 	      PORTA.OUT &= ~TX_INH;
 	    _delay_ms(10);
 	    PORTB.OUT &= ~PA;
-	    _delay_ms(10);
+	    _delay_ms(20);
 	    PORTA.OUT &= ~RELAY;
-	    _delay_ms(50);
+	    _delay_ms(20);
 	    PORTA.OUT |= RX;
     
 	  }
