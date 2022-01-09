@@ -9,3 +9,5 @@ Changelog/notes:
 -PMOS: SI2347DS-T1-GE3\
 -NMOS: SI2318DS-T1-BE3\
 -2k2->3k0
+
+Löd alltid relä vid test.
