@@ -22,7 +22,7 @@
 volatile uint8_t overload_flag;
 volatile uint16_t cyclecount;
 
-ISR(RTC_PIT_vect) { // 16 Hz - check overload
+ISR(RTC_PIT_vect) { // 8 Hz - check overload
 
   RTC.PITINTFLAGS = 0x01; // clear flag
   if (overload_flag) {
@@ -116,7 +116,7 @@ void main () {
   while(RTC.PITSTATUS);
   RTC.PITINTCTRL = 0x01; // enable interrupt
   while(RTC.PITSTATUS);
-  RTC.PITCTRLA = 0b01011001; // Enable, interrupt after 2048 cycles => 16Hz
+  RTC.PITCTRLA = 0b01011001; // Enable, interrupt after 4096 cycles => 8Hz
 
   PORTA.OUT |= RX;
   if (jp2_soldered)
@@ -126,11 +126,11 @@ void main () {
   
   while(1) {
     if (PTT_ACTIVE) {
-	_delay_ms(1); // filter noise spikes
+	_delay_us(10); // filter noise spikes
 	if (PTT_ACTIVE) {
 	    // go from Receive to Transmit
 	    PORTA.OUT &= ~RX;
-	    _delay_ms(10);
+	    //_delay_ms(10);
 	    PORTA.OUT |= RELAY;
 	    _delay_ms(25);
 	    cyclecount = 0;
@@ -157,7 +157,7 @@ void main () {
 	      PORTA.OUT &= ~TX_INH;
 	    _delay_ms(10);
 	    PORTB.OUT &= ~PA;
-	    _delay_ms(20);
+	    _delay_ms(10);
 	    PORTA.OUT &= ~RELAY;
 	    _delay_ms(20);
 	    PORTA.OUT |= RX;
