@@ -50,7 +50,7 @@ void main () {
 
   uint8_t jp1_soldered, jp2_soldered, jp3_soldered;
   
-  PORTA.DIR = TX_INH | RX | RELAY | BUCK_GATE; // outputs
+  PORTA.DIR = TX_INH | RX | RELAY | BUCK_GATE | JP3; // outputs
   PORTA.PIN7CTRL = 0x04; // digital input disable for AINP0/PA7
   PORTA.OUT = 0x00;
   PORTB.DIR = PA;
@@ -75,9 +75,9 @@ void main () {
   else
     jp2_soldered = 1;
 
-  if (PORTA.IN & JP3)
-    jp3_soldered = 0;
-  else
+  //if (PORTA.IN & JP3)
+  //jp3_soldered = 0;
+  //else
     jp3_soldered = 1;
 
   TCA0.SINGLE.PER = 67; // 20us period -> 50 kHz
@@ -137,6 +137,8 @@ void main () {
 	    PORTA.PIN5CTRL = 0x02; // Interrupt at rising edge on gate drive pin
 	    _delay_ms(10); // measured to 15ms with the interrupts
 	    PORTA.PIN5CTRL = 0x00; // disable interrupt
+	    _delay_ms(60);
+	    PORTA.OUT &= ~RELAY;
 	    if ( ( ((cyclecount > (uint16_t)38) && (cyclecount < (uint16_t)600)) || jp1_soldered) && !(PORTA.IN & REL_FB)) {
 	  // Continue if 4-80 % load on relay or JP1 soldered, and REL_FB low
 	      PORTB.OUT |= PA;
@@ -158,8 +160,10 @@ void main () {
 	    _delay_ms(10);
 	    PORTB.OUT &= ~PA;
 	    _delay_ms(10);
-	    PORTA.OUT &= ~RELAY;
-	    _delay_ms(20);
+	    PORTA.OUT |= JP3; // RX relay
+	    _delay_ms(100);
+	    PORTA.OUT &= ~JP3;
+	    //_delay_ms(20);
 	    PORTA.OUT |= RX;
     
 	  }
