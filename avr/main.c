@@ -139,6 +139,7 @@ void main () {
 	    PORTA.PIN5CTRL = 0x00; // disable interrupt
 	    if ( ( ((cyclecount > (uint16_t)38) && (cyclecount < (uint16_t)600)) || jp1_soldered) && !(PORTA.IN & REL_FB)) {
 	  // Continue if 4-80 % load on relay or JP1 soldered, and REL_FB low
+	      _delay_ms(10);
 	      PORTB.OUT |= PA;
 	      _delay_ms(10);
 	      if (jp2_soldered)
