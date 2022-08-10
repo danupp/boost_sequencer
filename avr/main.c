@@ -19,7 +19,7 @@
 
 #define PTT_ACTIVE ( ((PORTB.IN & PTT) && (jp3_soldered == 0)) || (!(PORTB.IN & PTT) && jp3_soldered) )
 
-volatile uint8_t overload_flag;
+volatile uint8_t overload_flag, wakeup;
 volatile uint16_t cyclecount;
 
 ISR(RTC_PIT_vect) { // 8 Hz - check overload
@@ -44,6 +44,18 @@ ISR(AC0_AC_vect) {
 ISR(PORTA_PORT_vect) {
   PORTA.INTFLAGS = 0x20; // clear flag
   cyclecount++;
+}
+
+ISR(RTC_CNT_vect) {
+  RTC.INTFLAGS = 0x03; // clear flags
+  wakeup = 0x01;
+}
+
+void RTC_wait(uint16_t val) {
+  RTC.PER = val;
+  RTC.INTCTRL = 0x01; // enable overflow interrupt
+  while(RTC.STATUS);
+  RTC.CTRLA = 0x01; // enable RTC
 }
 
 void main () {
@@ -110,13 +122,14 @@ void main () {
   _delay_ms(100); // wait 100ms after start before enabling overload detection
   
   overload_flag = 0x00;
+  wakeup = 0x00;
   
   while(RTC.STATUS);
   RTC.CLKSEL = 0x00; // Use 32 kHz from OSC32K
   while(RTC.PITSTATUS);
   RTC.PITINTCTRL = 0x01; // enable interrupt
   while(RTC.PITSTATUS);
-  RTC.PITCTRLA = 0b01011001; // Enable, interrupt after 4096 cycles => 8Hz
+  RTC.PITCTRLA = 0b01011001; // Enable PIT, interrupt after 4096 cycles => 8Hz
 
   PORTA.OUT |= RX;
   if (jp2_soldered)
@@ -125,45 +138,98 @@ void main () {
   sei();
   
   while(1) {
-    if (PTT_ACTIVE) {
-	_delay_us(10); // filter noise spikes
-	if (PTT_ACTIVE) {
-	    // go from Receive to Transmit
-	    PORTA.OUT &= ~RX;
-	    //_delay_ms(10);
-	    PORTA.OUT |= RELAY;
-	    _delay_ms(25);
-	    cyclecount = 0;
-	    PORTA.PIN5CTRL = 0x02; // Interrupt at rising edge on gate drive pin
-	    _delay_ms(10); // measured to 15ms with the interrupts
-	    PORTA.PIN5CTRL = 0x00; // disable interrupt
-	    if ( ( ((cyclecount > (uint16_t)38) && (cyclecount < (uint16_t)600)) || jp1_soldered) && !(PORTA.IN & REL_FB)) {
-	  // Continue if 4-80 % load on relay or JP1 soldered, and REL_FB low
-	      _delay_ms(10);
-	      PORTB.OUT |= PA;
-	      _delay_ms(10);
-	      if (jp2_soldered)
-		PORTA.OUT &= ~TX_INH;
-	      else
-		PORTA.OUT |= TX_INH;
-	    }
-	    while (PTT_ACTIVE) {
-		_delay_ms(1);
-	      }
-    
-	    // from Transmit to Receive
-	    if (jp2_soldered)
-	      PORTA.OUT |= TX_INH;
-	    else
-	      PORTA.OUT &= ~TX_INH;
-	    _delay_ms(10);
-	    PORTB.OUT &= ~PA;
-	    _delay_ms(10);
-	    PORTA.OUT &= ~RELAY;
-	    _delay_ms(20);
-	    PORTA.OUT |= RX;
-    
-	  }
+    if (ptt_change) {
+      if (PTT_ACTIVE) {  // Initiate transition to TX
+      	case RX:
+	  PORTA.OUT &= ~RX;
+	  PORTA.OUT |= RELAY;
+	  state = TX_1;
+	  RTC_wait(xx); // 10ms
+	  break;
+	case RX_1:
+	  if (jp2_soldered)
+	    PORTA.OUT &= ~TX_INH;
+	  else
+	    PORTA.OUT |= TX_INH;
+	  state = TX;
+	  break;
+	case RX_2:
+	  PORTB.OUT |= PA;
+	  RTC_wait(xx); // 10ms
+	  state = TX_4;
+	case RX_3:
+	  PORTA.OUT |= RELAY;
+	  state = TX_1;
+	  RTC_wait(xx); // 10ms
+	  break;
       }
+      else {  // Initiate transition to RX
+	switch (state) {
+	case TX:
+	  if (jp2_soldered)
+	    PORTA.OUT |= TX_INH;
+	  else
+	    PORTA.OUT &= ~TX_INH;
+	  state = RX_1;
+	  RTC_wait(xx); // 10ms
+	  break;
+	case TX_1:
+	  PORTA.OUT |= RX;
+	  PORTA.OUT &= ~RELAY;
+	  state = RX;
+	  break;
+	case TX_2:
+	case TX_3:
+	  PORTA.PIN5CTRL = 0x00; // disable interrupt
+	  PORTA.OUT |= RX;
+	  PORTA.OUT &= ~RELAY;
+	  state = RX;
+	  break;
+	
+	  
+    else if (wakeup) {
+      wakeup = 0x00;
+      switch(state) {
+      case TX_1:
+	cyclecount = 0;
+	PORTA.PIN5CTRL = 0x02; // Interrupt at rising edge on gate drive pin
+	RTC_wait(xx); // 15 ms
+	state = TX_2;
+	break;
+      case TX_2:
+	PORTA.PIN5CTRL = 0x00; // disable interrupt
+	if ( ( ((cyclecount > (uint16_t)38) && (cyclecount < (uint16_t)600)) || jp1_soldered) && !(PORTA.IN & REL_FB)) {
+	  // Continue if 4-80 % load on relay or JP1 soldered, and REL_FB low
+	  RTC_wait(xx); // 10 ms
+	  state = TX_3;
+	}
+	break;
+      case TX_3:
+	PORTB.OUT |= PA;
+	RTC_wait(xx); // 10ms
+	state = TX_4;
+	break;
+      case TX_4:
+	if (jp2_soldered)
+	  PORTA.OUT &= ~TX_INH;
+	else
+	  PORTA.OUT |= TX_INH;
+	state = TX;
+	break;
+      case RX_1:
+	PORTB.OUT &= ~PA;
+	RTC_wait(xx); // 10ms
+	state = RX_2;
+	break;
+      case RX_2:
+	PORTA.OUT &= ~RELAY;
+	RTC_wait(xx); // 20ms
+	state = RX_3;
+      case RX_3:
+	PORTA.OUT |= RX;
+	state = RX;
+	break;
+      }
+    }
   }
 }
