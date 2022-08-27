@@ -160,8 +160,14 @@ void main () {
 	    PORTB.OUT &= ~PA;
 	    _delay_ms(10);
 	    PORTA.OUT &= ~RELAY;
-	    _delay_ms(20);
-	    PORTA.OUT |= RX;
+	    //_delay_ms(20);  -- Blind time if PTT activates again
+	    for(uint8_t a=0; a<200; a++) {
+	      _delay_us(100);
+	      if(PTT_ACTIVE)
+		break;
+	    }
+	    if(!PTT_ACTIVE)
+	      PORTA.OUT |= RX;
     
 	  }
       }
