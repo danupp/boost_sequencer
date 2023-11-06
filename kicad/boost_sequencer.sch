@@ -194,7 +194,7 @@ Wire Wire Line
 Connection ~ 8275 900 
 Wire Wire Line
 	7150 900  8275 900 
-Text Notes 1650 6250 0    50   ~ 0
+Text Notes 1275 6275 0    50   ~ 0
 Solder JPx to/if\n\nJP1 - disable power monitoring\nJP2 - make TX signal INH\nJP3 - PTT active high\nJP4 - reserved\n
 Wire Wire Line
 	3850 2800 3700 2800
@@ -259,7 +259,7 @@ L Transistor_BJT:DTC144E Q8
 U 1 1 6443AEB2
 P 8450 6100
 F 0 "Q8" H 8638 6146 50  0000 L CNN
-F 1 "PDTC144E" H 8638 6055 50  0000 L CNN
+F 1 "PDTC144E" H 8025 6275 50  0000 L CNN
 F 2 "Package_TO_SOT_SMD:SOT-323_SC-70" H 8450 6100 50  0001 L CNN
 F 3 "" H 8450 6100 50  0001 L CNN
 	1    8450 6100
