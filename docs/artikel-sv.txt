@@ -1,0 +1,10 @@
+
+Ett ämne som ofta får för lite uppmärksamhet när man bygger effektförstärkare är behovet av sekvensering. Det man vill säkerställa är att antenn/last alltid kopplas in till förstärkaren/slutsteget innan steget driver ut effekt. Om så inte sker riskerar man att slutsteget under en kort period ser en totalreflektion som last, d.v.s. hög stående våg, vilket riskerar att förstöra steget. Man riskerar också att antennereläet slits kraftigt om tillslaget sker med påförd effekt.
+Komersiella sändtagare har ofta en signal ut som indikerar sändning, men hur denna är relaterad i tid till utsänd effekt varierar och man kan inte vara säker på att sekvensen är rätt. En IC-7000 t.ex, visade sig ge sändsignal ca XXX ms före effekt matades ut, vilket inte räcker för att ett relä ska hinna koppla om. Och om man släpper PTT-knappen och fortsätter prata i mikrofonen (vid SSB) kan man få effekt ut några ms efter att sändsignalen avaktiverats.  Låter man ett slutsteg och antennrelä aktiveras samtidigt av denna signal riskrerar man således att skada steg och relä både vid till- och frånslag.
+Lösningen på problemet är att använda en sekvenseringskrets som tillser att relä drar först och att steget slås på efter en säker tid. Vid avslag i omvänd ordning. En sådan krets kan byggas enkelt genom att låta en kondensator laddas upp/ur genom ett motstånd och ha komparatorer som aktiverar relä och steg vid olika nivåer.
+-bild-
+En sådan lösning är enkel men saknar 
+Om antennreläet av någon anledning inte drar finns inget som skyddar. 
+Ett koaxrelä behöver ofta 24-28V, medan man troligen vill köra sekvenseringsstyrningen från annan matningsspänning. Det medför en risk att reläspänning saknas samtidigt som sekvenseringen är igång.
+
+Min lösning på problemen var att gå från enkel komparatorkrets till en lösning med en mikrokontroller. Det ger alla möjligheter att styra och övervaka. En modern ATtiny för 10 kronor innehåller dessutom mycket periferi, ADC, DAC, komparator, timers m.m., som kan köras helt oberoende av processorkärnan. Detta ger möjlighet att samtidigt generera 28V-spänning utan någon särskild IC för ändamålet.  
